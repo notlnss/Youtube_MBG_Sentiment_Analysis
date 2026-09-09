@@ -180,14 +180,7 @@ max_comments = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(
-    "**Cara dapat API Key gratis:**\n"
-    "1. Buka [Google Cloud Console](https://console.cloud.google.com/)\n"
-    "2. Buat project baru (atau pakai yang ada)\n"
-    "3. Aktifkan **YouTube Data API v3**\n"
-    "4. Buka menu Credentials → Create Credentials → API Key\n"
-    "5. Copy API Key ke kolom di atas"
-)
+
 
 # ==========================================================================================
 # UI - MAIN
