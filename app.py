@@ -238,10 +238,10 @@ if video_url:
             video_details = None
 
         if video_details:
-            col_thumb, col_info = st.columns([1, 2])
+            col_thumb, col_info = st.columns([1, 3])
             with col_thumb:
                 if video_details["thumbnail_url"]:
-                    st.image(video_details["thumbnail_url"], use_container_width=True)
+                    st.image(video_details["thumbnail_url"], width=200)
             with col_info:
                 st.markdown(f"**{video_details['title']}**")
                 st.caption(f"Channel: {video_details['channel']}")
