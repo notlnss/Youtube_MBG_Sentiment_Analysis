@@ -287,27 +287,21 @@ if analyze_button:
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
-            # ==================================================================
-            # TABEL DETAIL KOMENTAR
-            # ==================================================================
-            st.markdown("## 🗒️ Detail Komentar")
+    # ==================================================================
+    # TABEL DETAIL KOMENTAR
+    # ==================================================================
+    st.markdown("## 🗒️ Detail Komentar")
+ 
+    filter_sentiment = st.multiselect(
+        "Filter berdasarkan sentimen:",
+        options=["Negative", "Neutral", "Positive"],
+        default=["Negative", "Neutral", "Positive"],
+        key="filter_sentiment",
+    )
+ 
+    display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
+        ["author", "comment", "sentiment", "confidence", "like_count"]
+    ].sort_values("confidence", ascending=False)
+ 
+    st.dataframe(display_df, use_container_width=True, height=400)
 
-            filter_sentiment = st.multiselect(
-                "Filter berdasarkan sentimen:",
-                options=["Negative", "Neutral", "Positive"],
-                default=["Negative", "Neutral", "Positive"],
-            )
-
-            display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
-                ["author", "comment", "sentiment", "confidence", "like_count"]
-            ].sort_values("confidence", ascending=False)
-
-            st.dataframe(display_df, use_container_width=True, height=400)
-
-            csv_data = display_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Download Hasil (CSV)",
-                data=csv_data,
-                file_name=f"sentimen_mbg_{video_id}.csv",
-                mime="text/csv",
-            )
