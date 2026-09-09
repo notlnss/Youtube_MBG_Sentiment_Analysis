@@ -24,7 +24,7 @@ import plotly.express as px
 # ==========================================================================================
 
 st.set_page_config(
-    page_title="Sentimen Komentar YouTube - Program MBG",
+    page_title="Sistem Prediksi Pemetaan Sentimen: YouTube Program MBG",
     page_icon="📊",
     layout="wide",
 )
