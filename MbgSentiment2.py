@@ -194,7 +194,7 @@ default_api_key = st.secrets.get("YOUTUBE_API_KEY", "")
 
 if default_api_key:
     api_key_input = default_api_key
-    st.sidebar.success("✅ API Key sudah tersedia (bawaan aplikasi)")
+    st.sidebar.success("✅ API Key sudah tersedia")
 else:
     api_key_input = st.sidebar.text_input(
         "YouTube Data API Key",
