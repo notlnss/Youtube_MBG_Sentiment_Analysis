@@ -203,6 +203,7 @@ video_url = st.text_input(
 
 analyze_button = st.button("🔍 Analisis Sentimen", type="primary")
 
+# --- Proses analisis: hanya jalan saat tombol diklik, hasilnya disimpan ke session_state ---
 if analyze_button:
     if not api_key_input:
         st.error("Mohon masukkan YouTube API Key di sidebar terlebih dahulu.")
@@ -245,69 +246,79 @@ if analyze_button:
                 df_comments["sentiment"] = pred_labels
                 df_comments["confidence"] = confidences
 
-            # ==================================================================
-            # RINGKASAN PERSENTASE
-            # ==================================================================
-            st.markdown("## 📈 Ringkasan Sentimen")
+            # Simpan hasil ke session_state supaya tidak hilang saat widget lain di-interaksi
+            st.session_state["df_comments"] = df_comments
+            st.session_state["video_id"] = video_id
 
-            total = len(df_comments)
-            counts = df_comments["sentiment"].value_counts()
-            pct_negative = counts.get("Negative", 0) / total * 100
-            pct_neutral = counts.get("Neutral", 0) / total * 100
-            pct_positive = counts.get("Positive", 0) / total * 100
+# --- Tampilan hasil: selalu render berdasarkan session_state, tidak tergantung status tombol ---
+if "df_comments" in st.session_state:
+    df_comments = st.session_state["df_comments"]
+    video_id = st.session_state["video_id"]
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("😡 Negative", f"{pct_negative:.1f}%", f"{counts.get('Negative', 0)} komentar")
-            col2.metric("😐 Neutral", f"{pct_neutral:.1f}%", f"{counts.get('Neutral', 0)} komentar")
-            col3.metric("😊 Positive", f"{pct_positive:.1f}%", f"{counts.get('Positive', 0)} komentar")
+    # ==================================================================
+    # RINGKASAN PERSENTASE
+    # ==================================================================
+    st.markdown("## 📈 Ringkasan Sentimen")
 
-            if pct_negative >= 30:
-                st.warning(f"⚠️ Sentimen negatif cukup tinggi ({pct_negative:.1f}%) — perlu perhatian lebih lanjut.")
+    total = len(df_comments)
+    counts = df_comments["sentiment"].value_counts()
+    pct_negative = counts.get("Negative", 0) / total * 100
+    pct_neutral = counts.get("Neutral", 0) / total * 100
+    pct_positive = counts.get("Positive", 0) / total * 100
 
-            col_chart1, col_chart2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("😡 Negative", f"{pct_negative:.1f}%", f"{counts.get('Negative', 0)} komentar")
+    col2.metric("😐 Neutral", f"{pct_neutral:.1f}%", f"{counts.get('Neutral', 0)} komentar")
+    col3.metric("😊 Positive", f"{pct_positive:.1f}%", f"{counts.get('Positive', 0)} komentar")
 
-            with col_chart1:
-                pie_df = pd.DataFrame({
-                    "Sentimen": ["Negative", "Neutral", "Positive"],
-                    "Jumlah": [counts.get("Negative", 0), counts.get("Neutral", 0), counts.get("Positive", 0)],
-                })
-                fig_pie = px.pie(
-                    pie_df, names="Sentimen", values="Jumlah",
-                    color="Sentimen",
-                    color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
-                    title="Distribusi Sentimen",
-                )
-                st.plotly_chart(fig_pie, use_container_width=True)
+    if pct_negative >= 30:
+        st.warning(f"⚠️ Sentimen negatif cukup tinggi ({pct_negative:.1f}%) — perlu perhatian lebih lanjut.")
 
-            with col_chart2:
-                fig_bar = px.bar(
-                    pie_df, x="Sentimen", y="Jumlah", color="Sentimen",
-                    color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
-                    title="Jumlah Komentar per Kelas",
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
+    col_chart1, col_chart2 = st.columns(2)
 
-            # ==================================================================
-            # TABEL DETAIL KOMENTAR
-            # ==================================================================
-            st.markdown("## 🗒️ Detail Komentar")
+    with col_chart1:
+        pie_df = pd.DataFrame({
+            "Sentimen": ["Negative", "Neutral", "Positive"],
+            "Jumlah": [counts.get("Negative", 0), counts.get("Neutral", 0), counts.get("Positive", 0)],
+        })
+        fig_pie = px.pie(
+            pie_df, names="Sentimen", values="Jumlah",
+            color="Sentimen",
+            color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
+            title="Distribusi Sentimen",
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-            filter_sentiment = st.multiselect(
-                "Filter berdasarkan sentimen:",
-                options=["Negative", "Neutral", "Positive"],
-                default=["Negative", "Neutral", "Positive"],
-            )
+    with col_chart2:
+        fig_bar = px.bar(
+            pie_df, x="Sentimen", y="Jumlah", color="Sentimen",
+            color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
+            title="Jumlah Komentar per Kelas",
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
 
-            display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
-                ["author", "comment", "sentiment", "confidence", "like_count"]
-            ].sort_values("confidence", ascending=False)
+    # ==================================================================
+    # TABEL DETAIL KOMENTAR
+    # ==================================================================
+    st.markdown("## 🗒️ Detail Komentar")
 
-            st.dataframe(display_df, use_container_width=True, height=400)
+    filter_sentiment = st.multiselect(
+        "Filter berdasarkan sentimen:",
+        options=["Negative", "Neutral", "Positive"],
+        default=["Negative", "Neutral", "Positive"],
+        key="filter_sentiment",
+    )
 
-            csv_data = display_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Download Hasil (CSV)",
-                data=csv_data,
-                file_name=f"sentimen_mbg_{video_id}.csv",
-                mime="text/csv",
-            )
+    display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
+        ["author", "comment", "sentiment", "confidence", "like_count"]
+    ].sort_values("confidence", ascending=False)
+
+    st.dataframe(display_df, use_container_width=True, height=400)
+
+    csv_data = display_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "⬇️ Download Hasil (CSV)",
+        data=csv_data,
+        file_name=f"sentimen_mbg_{video_id}.csv",
+        mime="text/csv",
+    )
