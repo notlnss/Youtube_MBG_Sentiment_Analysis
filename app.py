@@ -161,11 +161,19 @@ def predict_sentiment(texts, tokenizer, model, batch_size=16):
 
 st.sidebar.title("⚙️ Konfigurasi")
 
-api_key_input = st.sidebar.text_input(
-    "YouTube Data API Key",
-    type="password",
-    help="Dapatkan gratis di Google Cloud Console → Enable 'YouTube Data API v3' → Buat API Key.",
-)
+# Coba ambil API Key dari Streamlit Secrets (kalau sudah di-setup di dashboard Streamlit Cloud)
+# Kalau tidak ada, user bisa input manual sebagai fallback
+default_api_key = st.secrets.get("YOUTUBE_API_KEY", "")
+
+if default_api_key:
+    api_key_input = default_api_key
+    st.sidebar.success("✅ API Key sudah tersedia (bawaan aplikasi)")
+else:
+    api_key_input = st.sidebar.text_input(
+        "YouTube Data API Key",
+        type="password",
+        help="Dapatkan gratis di Google Cloud Console → Enable 'YouTube Data API v3' → Buat API Key.",
+    )
 
 max_comments = st.sidebar.slider(
     "Maksimum komentar diambil", min_value=50, max_value=2000, value=300, step=50
