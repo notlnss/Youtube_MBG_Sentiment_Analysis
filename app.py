@@ -111,33 +111,6 @@ def fetch_youtube_comments(video_id: str, api_key: str, max_comments: int = 500)
     return pd.DataFrame(comments)
 
 
-@st.cache_data(show_spinner=False, ttl=3600)
-def fetch_video_details(video_id: str, api_key: str):
-    """Ambil judul & thumbnail video YouTube."""
-    youtube = build("youtube", "v3", developerKey=api_key)
-    request = youtube.videos().list(part="snippet", id=video_id)
-    response = request.execute()
-
-    items = response.get("items", [])
-    if not items:
-        return None
-
-    snippet = items[0]["snippet"]
-    thumbnails = snippet.get("thumbnails", {})
-    # Ambil resolusi terbaik yang tersedia
-    thumbnail_url = (
-        thumbnails.get("high", {}).get("url")
-        or thumbnails.get("medium", {}).get("url")
-        or thumbnails.get("default", {}).get("url")
-    )
-
-    return {
-        "title": snippet.get("title", ""),
-        "channel": snippet.get("channelTitle", ""),
-        "thumbnail_url": thumbnail_url,
-    }
-
-
 # ==========================================================================================
 # LOAD MODEL (cached — cuma di-load sekali per session, langsung dari Hugging Face Hub)
 # ==========================================================================================
@@ -207,45 +180,29 @@ max_comments = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
-
+st.sidebar.markdown(
+    "**Cara dapat API Key gratis:**\n"
+    "1. Buka [Google Cloud Console](https://console.cloud.google.com/)\n"
+    "2. Buat project baru (atau pakai yang ada)\n"
+    "3. Aktifkan **YouTube Data API v3**\n"
+    "4. Buka menu Credentials → Create Credentials → API Key\n"
+    "5. Copy API Key ke kolom di atas"
+)
 
 # ==========================================================================================
 # UI - MAIN
 # ==========================================================================================
 
-st.title("🔎📊 Sistem Prediksi Sentimen Publik Program MBG - YouTube")
-st.caption("")
+st.title("📊 Analisis Sentimen Komentar YouTube — Program MBG")
+st.caption("Model: IndoBERT ONNX Quantized (Int8) — di-load dari Hugging Face Hub")
 
 video_url = st.text_input(
     "Masukkan link video YouTube:",
     placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx",
 )
 
-# --- Tampilkan preview judul & thumbnail video begitu link valid dimasukkan ---
-if video_url:
-    preview_video_id = extract_video_id(video_url)
-    if preview_video_id and api_key_input:
-        try:
-            video_details = fetch_video_details(preview_video_id, api_key_input)
-        except Exception:
-            video_details = None
-
-        if video_details:
-            col_thumb, col_info = st.columns([1, 3])
-            with col_thumb:
-                if video_details["thumbnail_url"]:
-                    st.image(video_details["thumbnail_url"], width=200)
-            with col_info:
-                st.markdown(f"**{video_details['title']}**")
-                st.caption(f"Channel: {video_details['channel']}")
-        else:
-            st.warning("Video tidak ditemukan. Periksa kembali link-nya.")
-    elif preview_video_id and not api_key_input:
-        st.info("Masukkan API Key di sidebar untuk melihat preview video.")
-
 analyze_button = st.button("🔍 Analisis Sentimen", type="primary")
 
-# --- Proses analisis: hanya jalan saat tombol diklik, hasilnya disimpan ke session_state ---
 if analyze_button:
     if not api_key_input:
         st.error("Mohon masukkan YouTube API Key di sidebar terlebih dahulu.")
@@ -288,71 +245,69 @@ if analyze_button:
                 df_comments["sentiment"] = pred_labels
                 df_comments["confidence"] = confidences
 
-            # Simpan hasil ke session_state supaya tidak hilang saat widget lain di-interaksi
-            st.session_state["df_comments"] = df_comments
-            st.session_state["video_id"] = video_id
+            # ==================================================================
+            # RINGKASAN PERSENTASE
+            # ==================================================================
+            st.markdown("## 📈 Ringkasan Sentimen")
 
-# --- Tampilan hasil: selalu render berdasarkan session_state, tidak tergantung status tombol ---
-if "df_comments" in st.session_state:
-    df_comments = st.session_state["df_comments"]
-    video_id = st.session_state["video_id"]
+            total = len(df_comments)
+            counts = df_comments["sentiment"].value_counts()
+            pct_negative = counts.get("Negative", 0) / total * 100
+            pct_neutral = counts.get("Neutral", 0) / total * 100
+            pct_positive = counts.get("Positive", 0) / total * 100
 
-    # ==================================================================
-    # RINGKASAN PERSENTASE
-    # ==================================================================
-    st.markdown("## 📈 Ringkasan Sentimen")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("😡 Negative", f"{pct_negative:.1f}%", f"{counts.get('Negative', 0)} komentar")
+            col2.metric("😐 Neutral", f"{pct_neutral:.1f}%", f"{counts.get('Neutral', 0)} komentar")
+            col3.metric("😊 Positive", f"{pct_positive:.1f}%", f"{counts.get('Positive', 0)} komentar")
 
-    total = len(df_comments)
-    counts = df_comments["sentiment"].value_counts()
-    pct_negative = counts.get("Negative", 0) / total * 100
-    pct_neutral = counts.get("Neutral", 0) / total * 100
-    pct_positive = counts.get("Positive", 0) / total * 100
+            if pct_negative >= 30:
+                st.warning(f"⚠️ Sentimen negatif cukup tinggi ({pct_negative:.1f}%) — perlu perhatian lebih lanjut.")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("😡 Negative", f"{pct_negative:.1f}%", f"{counts.get('Negative', 0)} komentar")
-    col2.metric("😐 Neutral", f"{pct_neutral:.1f}%", f"{counts.get('Neutral', 0)} komentar")
-    col3.metric("😊 Positive", f"{pct_positive:.1f}%", f"{counts.get('Positive', 0)} komentar")
+            col_chart1, col_chart2 = st.columns(2)
 
-    if pct_negative >= 30:
-        st.warning(f"⚠️ Sentimen negatif cukup tinggi ({pct_negative:.1f}%) — perlu perhatian lebih lanjut.")
+            with col_chart1:
+                pie_df = pd.DataFrame({
+                    "Sentimen": ["Negative", "Neutral", "Positive"],
+                    "Jumlah": [counts.get("Negative", 0), counts.get("Neutral", 0), counts.get("Positive", 0)],
+                })
+                fig_pie = px.pie(
+                    pie_df, names="Sentimen", values="Jumlah",
+                    color="Sentimen",
+                    color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
+                    title="Distribusi Sentimen",
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
 
-    col_chart1, col_chart2 = st.columns(2)
+            with col_chart2:
+                fig_bar = px.bar(
+                    pie_df, x="Sentimen", y="Jumlah", color="Sentimen",
+                    color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
+                    title="Jumlah Komentar per Kelas",
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
 
-    with col_chart1:
-        pie_df = pd.DataFrame({
-            "Sentimen": ["Negative", "Neutral", "Positive"],
-            "Jumlah": [counts.get("Negative", 0), counts.get("Neutral", 0), counts.get("Positive", 0)],
-        })
-        fig_pie = px.pie(
-            pie_df, names="Sentimen", values="Jumlah",
-            color="Sentimen",
-            color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
-            title="Distribusi Sentimen",
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+            # ==================================================================
+            # TABEL DETAIL KOMENTAR
+            # ==================================================================
+            st.markdown("## 🗒️ Detail Komentar")
 
-    with col_chart2:
-        fig_bar = px.bar(
-            pie_df, x="Sentimen", y="Jumlah", color="Sentimen",
-            color_discrete_map={"Negative": "#EF553B", "Neutral": "#B0B0B0", "Positive": "#2CA02C"},
-            title="Jumlah Komentar per Kelas",
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+            filter_sentiment = st.multiselect(
+                "Filter berdasarkan sentimen:",
+                options=["Negative", "Neutral", "Positive"],
+                default=["Negative", "Neutral", "Positive"],
+            )
 
-    # ==================================================================
-    # TABEL DETAIL KOMENTAR
-    # ==================================================================
-    st.markdown("## 🗒️ Detail Komentar")
+            display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
+                ["author", "comment", "sentiment", "confidence", "like_count"]
+            ].sort_values("confidence", ascending=False)
 
-    filter_sentiment = st.multiselect(
-        "Filter berdasarkan sentimen:",
-        options=["Negative", "Neutral", "Positive"],
-        default=["Negative", "Neutral", "Positive"],
-        key="filter_sentiment",
-    )
+            st.dataframe(display_df, use_container_width=True, height=400)
 
-    display_df = df_comments[df_comments["sentiment"].isin(filter_sentiment)][
-        ["author", "comment", "sentiment", "confidence", "like_count"]
-    ].sort_values("confidence", ascending=False)
-
-    st.dataframe(display_df, use_container_width=True, height=400)
+            csv_data = display_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️ Download Hasil (CSV)",
+                data=csv_data,
+                file_name=f"sentimen_mbg_{video_id}.csv",
+                mime="text/csv",
+            )
