@@ -213,7 +213,7 @@ st.sidebar.markdown("---")
 # UI - MAIN
 # ==========================================================================================
 
-st.title("📊 Prediksi Sentimen Komentar YouTube — Program MBG ")
+st.title("🔎📊 Sistem Prediksi Sentimen Publik Program MBG - YouTube")
 st.caption("")
 
 video_url = st.text_input(
