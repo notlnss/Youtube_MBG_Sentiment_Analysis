@@ -24,7 +24,7 @@ import plotly.express as px
 # ==========================================================================================
 
 st.set_page_config(
-    page_title="Sistem Prediksi Pemetaan Sentimen: YouTube Program MBG",
+    page_title="Sentimen Komentar YouTube - Program MBG",
     page_icon="📊",
     layout="wide",
 )
@@ -111,6 +111,33 @@ def fetch_youtube_comments(video_id: str, api_key: str, max_comments: int = 500)
     return pd.DataFrame(comments)
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def fetch_video_details(video_id: str, api_key: str):
+    """Ambil judul & thumbnail video YouTube."""
+    youtube = build("youtube", "v3", developerKey=api_key)
+    request = youtube.videos().list(part="snippet", id=video_id)
+    response = request.execute()
+
+    items = response.get("items", [])
+    if not items:
+        return None
+
+    snippet = items[0]["snippet"]
+    thumbnails = snippet.get("thumbnails", {})
+    # Ambil resolusi terbaik yang tersedia
+    thumbnail_url = (
+        thumbnails.get("high", {}).get("url")
+        or thumbnails.get("medium", {}).get("url")
+        or thumbnails.get("default", {}).get("url")
+    )
+
+    return {
+        "title": snippet.get("title", ""),
+        "channel": snippet.get("channelTitle", ""),
+        "thumbnail_url": thumbnail_url,
+    }
+
+
 # ==========================================================================================
 # LOAD MODEL (cached — cuma di-load sekali per session, langsung dari Hugging Face Hub)
 # ==========================================================================================
@@ -167,7 +194,7 @@ default_api_key = st.secrets.get("YOUTUBE_API_KEY", "")
 
 if default_api_key:
     api_key_input = default_api_key
-    st.sidebar.success("✅ API Key sudah tersedia")
+    st.sidebar.success("✅ API Key sudah tersedia (bawaan aplikasi)")
 else:
     api_key_input = st.sidebar.text_input(
         "YouTube Data API Key",
@@ -180,7 +207,14 @@ max_comments = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
-
+st.sidebar.markdown(
+    "**Cara dapat API Key gratis:**\n"
+    "1. Buka [Google Cloud Console](https://console.cloud.google.com/)\n"
+    "2. Buat project baru (atau pakai yang ada)\n"
+    "3. Aktifkan **YouTube Data API v3**\n"
+    "4. Buka menu Credentials → Create Credentials → API Key\n"
+    "5. Copy API Key ke kolom di atas"
+)
 
 # ==========================================================================================
 # UI - MAIN
@@ -193,6 +227,28 @@ video_url = st.text_input(
     "Masukkan link video YouTube:",
     placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx",
 )
+
+# --- Tampilkan preview judul & thumbnail video begitu link valid dimasukkan ---
+if video_url:
+    preview_video_id = extract_video_id(video_url)
+    if preview_video_id and api_key_input:
+        try:
+            video_details = fetch_video_details(preview_video_id, api_key_input)
+        except Exception:
+            video_details = None
+
+        if video_details:
+            col_thumb, col_info = st.columns([1, 2])
+            with col_thumb:
+                if video_details["thumbnail_url"]:
+                    st.image(video_details["thumbnail_url"], use_container_width=True)
+            with col_info:
+                st.markdown(f"**{video_details['title']}**")
+                st.caption(f"Channel: {video_details['channel']}")
+        else:
+            st.warning("Video tidak ditemukan. Periksa kembali link-nya.")
+    elif preview_video_id and not api_key_input:
+        st.info("Masukkan API Key di sidebar untuk melihat preview video.")
 
 analyze_button = st.button("🔍 Analisis Sentimen", type="primary")
 
