@@ -314,11 +314,3 @@ if "df_comments" in st.session_state:
     ].sort_values("confidence", ascending=False)
 
     st.dataframe(display_df, use_container_width=True, height=400)
-
-    csv_data = display_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "⬇️ Download Hasil (CSV)",
-        data=csv_data,
-        file_name=f"sentimen_mbg_{video_id}.csv",
-        mime="text/csv",
-    )
