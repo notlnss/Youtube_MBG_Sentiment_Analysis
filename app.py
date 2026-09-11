@@ -186,7 +186,7 @@ st.sidebar.markdown(
 # ==========================================================================================
 
 st.title("🔎📊 Sistem Prediksi Sentimen Publik Program MBG - YouTube")
-st.caption("Model: IndoBERT ONNX Quantized (Int8) — di-load dari Hugging Face Hub")
+st.caption("")
 
 video_url = st.text_input(
     "Masukkan link video YouTube:",
